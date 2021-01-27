@@ -9,6 +9,23 @@ pub trait Orster {
 
 pub struct BubbleOrst;
 
+// trait OrstCallback {
+//     fn call(&mut self, i: usize, j: usize) -> Exit;
+// }
+//
+// impl<F> OrstCallback for F where F: FnMut(usize, usize) -> Exit {
+//     fn call(&mut self, i: usize, j: usize) -> Exit {
+//         self(i, j)
+//     }
+// }
+//
+// impl<F> OrstCallback for F where F: FnMut(usize, usize) {
+//     fn call(&mut self, i: usize, j: usize) -> Exit {
+//         self(i, j);
+//         Exit::No
+//     }
+// }
+
 impl Orster for BubbleOrst {
     fn orst<T, C>(&self, slice: &mut [T], mut callback: C)
     where

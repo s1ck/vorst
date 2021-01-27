@@ -1,3 +1,4 @@
+use itertools::{EitherOrBoth, Itertools};
 use std::error::Error;
 use std::io::stdout;
 use std::time::{Duration, Instant};
@@ -39,34 +40,90 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut nums: Vec<u64> = (1..=42).collect();
     nums.shuffle(&mut rng);
 
+    let mut bubble_nums = nums.clone();
+    let mut insert_nums = nums.clone();
+    let mut quick_nums = nums.clone();
+
+    let mut bubble_swaps = vec![];
+    let mut insert_swaps = vec![];
+    let mut quick_swaps = vec![];
+
+    orst::BubbleOrst.orst(&mut bubble_nums, |i, j| {
+        bubble_swaps.push((i, j));
+        Exit::No
+    });
+
+    orst::InsertionOrst.orst(&mut insert_nums, |i, j| {
+        insert_swaps.push((i, j));
+        Exit::No
+    });
+
+    orst::QuickOrst.orst(&mut quick_nums, |i, j| {
+        quick_swaps.push((i, j));
+        Exit::No
+    });
+
+    let swaps = bubble_swaps.into_iter()
+        .zip_longest(insert_swaps)
+        .zip_longest(quick_swaps);
+
     let data = nums
         .iter()
         .enumerate()
         .map(|(idx, num)| ((idx + 1).to_string(), *num))
         .collect::<Vec<_>>();
 
-    let mut data_ref = data
+    let mut bubble_data_ref = data
         .iter()
         .map(|(key, num)| (key.as_str(), *num))
         .collect::<Vec<_>>();
 
-    let callback = |i, j| -> Exit {
+    let mut insert_data_ref = bubble_data_ref.clone();
+    let mut quick_data_ref = bubble_data_ref.clone();
+
+    for swap in swaps {
         terminal
             .draw(|f| {
                 let chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .margin(2)
                     .constraints(
-                        [Constraint::Percentage(100), Constraint::Percentage(100)].as_ref(),
+                        [
+                            Constraint::Percentage(33),
+                            Constraint::Percentage(33),
+                            Constraint::Percentage(33),
+                        ]
+                            .as_ref(),
                     )
                     .split(f.size());
-                let barchart = BarChart::default()
-                    .block(Block::default().title("Bubble").borders(Borders::ALL))
-                    .data(&data_ref)
+
+                let bubble_chart = BarChart::default()
+                    .block(Block::default().title("Bubble Orst").borders(Borders::ALL))
+                    .data(&bubble_data_ref)
                     .bar_width(3)
-                    .bar_style(Style::default().fg(Color::Yellow))
-                    .value_style(Style::default().fg(Color::Black).bg(Color::Yellow));
-                f.render_widget(barchart, chunks[0]);
+                    .bar_style(Style::default().fg(Color::LightYellow))
+                    .value_style(Style::default().fg(Color::Black).bg(Color::LightYellow));
+                f.render_widget(bubble_chart, chunks[0]);
+
+                let insert_chart = BarChart::default()
+                    .block(
+                        Block::default()
+                            .title("Insertion Orst")
+                            .borders(Borders::ALL),
+                    )
+                    .data(&insert_data_ref)
+                    .bar_width(3)
+                    .bar_style(Style::default().fg(Color::LightGreen))
+                    .value_style(Style::default().fg(Color::Black).bg(Color::LightGreen));
+                f.render_widget(insert_chart, chunks[1]);
+
+                let quick_chart = BarChart::default()
+                    .block(Block::default().title("Quick Orst").borders(Borders::ALL))
+                    .data(&quick_data_ref)
+                    .bar_width(3)
+                    .bar_style(Style::default().fg(Color::LightRed))
+                    .value_style(Style::default().fg(Color::Black).bg(Color::LightRed));
+                f.render_widget(quick_chart, chunks[2]);
             })
             .unwrap();
 
@@ -77,20 +134,35 @@ fn main() -> Result<(), Box<dyn Error>> {
             if event::poll((start + deadline) - Instant::now()).unwrap() {
                 if let CEvent::Key(key_event) = event::read().unwrap() {
                     if key_event.code == KeyCode::Char('q') {
-                        return Exit::Yes;
+                        break;
                     }
                 }
             }
         }
 
-        // swap refs
-        data_ref.swap(i, j);
-
-        Exit::No
-    };
-
-    // orst
-    orst::QuickOrst.orst(&mut nums, callback);
+        match swap {
+            EitherOrBoth::Both(l, (q_from, q_to)) => {
+                quick_data_ref.swap(q_from, q_to);
+                match l {
+                    EitherOrBoth::Both((b_from, b_to), (i_from, i_to)) => {
+                        bubble_data_ref.swap(b_from, b_to);
+                        insert_data_ref.swap(i_from, i_to);
+                    }
+                    EitherOrBoth::Left((b_from, b_to)) => bubble_data_ref.swap(b_from, b_to),
+                    EitherOrBoth::Right((i_from, i_to)) => insert_data_ref.swap(i_from, i_to),
+                }
+            }
+            EitherOrBoth::Left(l) => match l {
+                EitherOrBoth::Both((b_from, b_to), (i_from, i_to)) => {
+                    bubble_data_ref.swap(b_from, b_to);
+                    insert_data_ref.swap(i_from, i_to);
+                }
+                EitherOrBoth::Left((b_from, b_to)) => bubble_data_ref.swap(b_from, b_to),
+                EitherOrBoth::Right((i_from, i_to)) => insert_data_ref.swap(i_from, i_to),
+            },
+            EitherOrBoth::Right((q_from, q_to)) => quick_data_ref.swap(q_from, q_to),
+        }
+    }
 
     // draw change from last swap call
     terminal
@@ -99,16 +171,42 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .direction(Direction::Vertical)
                 .margin(2)
                 .constraints(
-                    [Constraint::Percentage(100), Constraint::Percentage(100)].as_ref(),
+                    [
+                        Constraint::Percentage(33),
+                        Constraint::Percentage(33),
+                        Constraint::Percentage(33),
+                    ]
+                        .as_ref(),
                 )
                 .split(f.size());
-            let barchart = BarChart::default()
-                .block(Block::default().title("Bubble").borders(Borders::ALL))
-                .data(&data_ref)
+
+            let bubble_chart = BarChart::default()
+                .block(Block::default().title("Bubble Orst").borders(Borders::ALL))
+                .data(&bubble_data_ref)
                 .bar_width(3)
-                .bar_style(Style::default().fg(Color::Yellow))
-                .value_style(Style::default().fg(Color::Black).bg(Color::Yellow));
-            f.render_widget(barchart, chunks[0]);
+                .bar_style(Style::default().fg(Color::LightYellow))
+                .value_style(Style::default().fg(Color::Black).bg(Color::LightYellow));
+            f.render_widget(bubble_chart, chunks[0]);
+
+            let insert_chart = BarChart::default()
+                .block(
+                    Block::default()
+                        .title("Insertion Orst")
+                        .borders(Borders::ALL),
+                )
+                .data(&insert_data_ref)
+                .bar_width(3)
+                .bar_style(Style::default().fg(Color::LightGreen))
+                .value_style(Style::default().fg(Color::Black).bg(Color::LightGreen));
+            f.render_widget(insert_chart, chunks[1]);
+
+            let quick_chart = BarChart::default()
+                .block(Block::default().title("Quick Orst").borders(Borders::ALL))
+                .data(&quick_data_ref)
+                .bar_width(3)
+                .bar_style(Style::default().fg(Color::LightRed))
+                .value_style(Style::default().fg(Color::Black).bg(Color::LightRed));
+            f.render_widget(quick_chart, chunks[2]);
         })
         .unwrap();
 
