@@ -21,11 +21,6 @@ use crate::orst::Orster;
 
 mod orst;
 
-pub enum Exit {
-    Yes,
-    No,
-}
-
 fn main() -> Result<(), Box<dyn Error>> {
     // Terminal initialization
     enable_raw_mode()?;
@@ -52,24 +47,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut quick_swaps = vec![];
 
     // do the orsting
-    orst::BubbleOrst.orst(&mut bubble_nums, |i, j| {
-        bubble_swaps.push((i, j));
-        Exit::No
-    });
-    orst::InsertionOrst.orst(&mut insert_nums, |i, j| {
-        insert_swaps.push((i, j));
-        Exit::No
-    });
-    orst::QuickOrst.orst(&mut quick_nums, |i, j| {
-        quick_swaps.push((i, j));
-        Exit::No
-    });
+    orst::BubbleOrst.orst(&mut bubble_nums, |i, j| bubble_swaps.push((i, j)));
+    orst::InsertionOrst.orst(&mut insert_nums, |i, j| insert_swaps.push((i, j)));
+    orst::QuickOrst.orst(&mut quick_nums, |i, j| quick_swaps.push((i, j)));
 
     let swaps = bubble_swaps
         .into_iter()
         .zip_longest(insert_swaps)
         .zip_longest(quick_swaps);
 
+    // bar chart data
     let data = nums
         .iter()
         .enumerate()
@@ -80,7 +67,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         .iter()
         .map(|(key, num)| (key.as_str(), *num))
         .collect::<Vec<_>>();
-
     let mut insert_data_ref = bubble_data_ref.clone();
     let mut quick_data_ref = bubble_data_ref.clone();
 
